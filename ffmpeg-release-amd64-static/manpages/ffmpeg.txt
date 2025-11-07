@@ -1,16 +1,16 @@
 FFMPEG(1)							     FFMPEG(1)
 
 NAME
-       ffmpeg - ffmpeg video converter
+       ffmpeg - ffmpeg media converter
 
 SYNOPSIS
        ffmpeg [global_options] {[input_file_options] -i input_url} ...
        {[output_file_options] output_url} ...
 
 DESCRIPTION
-       ffmpeg is a very fast video and audio converter that can also grab from
-       a live audio/video source. It can also convert between arbitrary sample
-       rates and resize video on the fly with a high quality polyphase filter.
+       ffmpeg is a universal media converter. It can read a wide variety of
+       inputs - including live grabbing/recording devices - filter, and
+       transcode them into a plethora of output formats.
 
        ffmpeg reads from an arbitrary number of input "files" (which can be
        regular files, pipes, network streams, grabbing devices, etc.),
@@ -43,18 +43,25 @@ DESCRIPTION
        different files. All options apply ONLY to the next input or output
        file and are reset between files.
 
-       o   To set the video bitrate of the output file to 64 kbit/s:
+       Some simple examples follow.
 
-		   ffmpeg -i input.avi -b:v 64k -bufsize 64k output.avi
+       o   Convert an input media file to a different format, by re-encoding
+	   media streams:
 
-       o   To force the frame rate of the output file to 24 fps:
+		   ffmpeg -i input.avi output.mp4
 
-		   ffmpeg -i input.avi -r 24 output.avi
+       o   Set the video bitrate of the output file to 64 kbit/s:
 
-       o   To force the frame rate of the input file (valid for raw formats
-	   only) to 1 fps and the frame rate of the output file to 24 fps:
+		   ffmpeg -i input.avi -b:v 64k -bufsize 64k output.mp4
 
-		   ffmpeg -r 1 -i input.m2v -r 24 output.avi
+       o   Force the frame rate of the output file to 24 fps:
+
+		   ffmpeg -i input.avi -r 24 output.mp4
+
+       o   Force the frame rate of the input file (valid for raw formats only)
+	   to 1 fps and the frame rate of the output file to 24 fps:
+
+		   ffmpeg -r 1 -i input.m2v -r 24 output.mp4
 
        The format option may be needed for raw input files.
 
@@ -89,7 +96,7 @@ DETAILED DESCRIPTION
        produces uncompressed frames (raw video/PCM audio/...) which can be
        processed further by filtering (see next section). After filtering, the
        frames are passed to the encoder, which encodes them and outputs
-       encoded packets. Finally those are passed to the muxer, which writes
+       encoded packets. Finally, those are passed to the muxer, which writes
        the encoded packets to the output file.
 
    Filtering
@@ -184,6 +191,40 @@ DETAILED DESCRIPTION
        quality loss. However, it might not work in some cases because of many
        factors. Applying filters is obviously also impossible, since filters
        work on uncompressed data.
+
+   Loopback decoders
+       While decoders are normally associated with demuxer streams, it is also
+       possible to create "loopback" decoders that decode the output from some
+       encoder and allow it to be fed back to complex filtergraphs. This is
+       done with the "-dec" directive, which takes as a parameter the index of
+       the output stream that should be decoded. Every such directive creates
+       a new loopback decoder, indexed with successive integers starting at
+       zero. These indices should then be used to refer to loopback decoders
+       in complex filtergraph link labels, as described in the documentation
+       for -filter_complex.
+
+       Decoding AVOptions can be passed to loopback decoders by placing them
+       before "-dec", analogously to input/output options.
+
+       E.g. the following example:
+
+	       ffmpeg -i INPUT					      \
+		 -map 0:v:0 -c:v libx264 -crf 45 -f null -	      \
+		 -threads 3 -dec 0:0				      \
+		 -filter_complex '[0:v][dec:0]hstack[stack]'	      \
+		 -map '[stack]' -c:v ffv1 OUTPUT
+
+       reads an input video and
+
+       o   (line 2) encodes it with "libx264" at low quality;
+
+       o   (line 3) decodes this encoded stream using 3 threads;
+
+       o   (line 4) places decoded video side by side with the original input
+	   video;
+
+       o   (line 5) combined video is then losslessly encoded and written into
+	   OUTPUT.
 
 STREAM SELECTION
        ffmpeg provides the "-map" option for manual control of stream
@@ -420,6 +461,16 @@ OPTIONS
        option name with "no". For example using "-nofoo" will set the boolean
        option with name "foo" to false.
 
+       Options that take arguments support a special syntax where the argument
+       given on the command line is interpreted as a path to the file from
+       which the actual argument value is loaded. To use this feature, add a
+       forward slash '/' immediately before the option name (after the leading
+       dash). E.g.
+
+	       ffmpeg -i INPUT -/filter:v filter.script OUTPUT
+
+       will load a filtergraph description from the file named filter.script.
+
    Stream specifiers
        Some options are applied per-stream, e.g. bitrate or codec. Stream
        specifiers are used to precisely specify which stream(s) a given option
@@ -445,8 +496,9 @@ OPTIONS
 	   used as an additional stream specifier (see below), then it selects
 	   stream number stream_index from the matching streams. Stream
 	   numbering is based on the order of the streams as detected by
-	   libavformat except when a program ID is also specified. In this
-	   case it is based on the ordering of the streams in the program.
+	   libavformat except when a stream group specifier or program ID is
+	   also specified. In this case it is based on the ordering of the
+	   streams in the group or program.
 
        stream_type[:additional_stream_specifier]
 	   stream_type is one of following: 'v' or 'V' for video, 'a' for
@@ -456,6 +508,19 @@ OPTIONS
 	   additional_stream_specifier is used, then it matches streams which
 	   both have this type and match the additional_stream_specifier.
 	   Otherwise, it matches all streams of the specified type.
+
+       g:group_specifier[:additional_stream_specifier]
+	   Matches streams which are in the group with the specifier
+	   group_specifier.  if additional_stream_specifier is used, then it
+	   matches streams which both are part of the group and match the
+	   additional_stream_specifier.  group_specifier may be one of the
+	   following:
+
+	   group_index
+	       Match the stream with this group index.
+
+	   #group_id or i:group_id
+	       Match the stream with this group id.
 
        p:program_id[:additional_stream_specifier]
 	   Matches streams which are in the program with the id program_id. If
@@ -1001,6 +1066,234 @@ OPTIONS
 	   Creates a program with the specified title, program_num and adds
 	   the specified stream(s) to it.
 
+       -stream_group
+       [map=input_file_id=stream_group][type=type:]st=stream[:st=stream][:stg=stream_group][:id=stream_group_id...]
+       (output)
+	   Creates a stream group of the specified type and stream_group_id,
+	   or by mapping an input group, adding the specified stream(s) and/or
+	   previously defined stream_group(s) to it.
+
+	   type can be one of the following:
+
+	   iamf_audio_element
+	       Groups streams that belong to the same IAMF Audio Element
+
+	       For this group type, the following options are available
+
+	       audio_element_type
+		   The Audio Element type. The following values are supported:
+
+		   channel
+		       Scalable channel audio representation
+
+		   scene
+		       Ambisonics representation
+
+	       demixing
+		   Demixing information used to reconstruct a scalable channel
+		   audio representation.  This option must be separated from
+		   the rest with a ',', and takes the following key=value
+		   options
+
+		   parameter_id
+		       An identifier parameters blocks in frames may refer to
+
+		   dmixp_mode
+		       A pre-defined combination of demixing parameters
+
+	       recon_gain
+		   Recon gain information used to reconstruct a scalable
+		   channel audio representation.  This option must be
+		   separated from the rest with a ',', and takes the following
+		   key=value options
+
+		   parameter_id
+		       An identifier parameters blocks in frames may refer to
+
+	       layer
+		   A layer defining a Channel Layout in the Audio Element.
+		   This option must be separated from the rest with a ','.
+		   Several ',' separated entries can be defined, and at least
+		   one must be set.
+
+		   It takes the following ":"-separated key=value options
+
+		   ch_layout
+		       The layer's channel layout
+
+		   flags
+		       The following flags are available:
+
+		       recon_gain
+			   Wether to signal if recon_gain is present as
+			   metadata in parameter blocks within frames
+
+		   output_gain
+		   output_gain_flags
+		       Which channels output_gain applies to. The following
+		       flags are available:
+
+		       FL
+		       FR
+		       BL
+		       BR
+		       TFL
+		       TFR
+		   ambisonics_mode
+		       The ambisonics mode. This has no effect if
+		       audio_element_type is set to channel.
+
+		       The following values are supported:
+
+		       mono
+			   Each ambisonics channel is coded as an individual
+			   mono stream in the group
+
+	       default_w
+		   Default weight value
+
+	   iamf_mix_presentation
+	       Groups streams that belong to all IAMF Audio Element the same
+	       IAMF Mix Presentation references
+
+	       For this group type, the following options are available
+
+	       submix
+		   A sub-mix within the Mix Presentation.  This option must be
+		   separated from the rest with a ','. Several ',' separated
+		   entries can be defined, and at least one must be set.
+
+		   It takes the following ":"-separated key=value options
+
+		   parameter_id
+		       An identifier parameters blocks in frames may refer to,
+		       for post-processing the mixed audio signal to generate
+		       the audio signal for playback
+
+		   parameter_rate
+		       The sample rate duration fields in parameters blocks in
+		       frames that refer to this parameter_id are expressed as
+
+		   default_mix_gain
+		       Default mix gain value to apply when there are no
+		       parameter blocks sharing the same parameter_id for a
+		       given frame
+
+		   element
+		       References an Audio Element used in this Mix
+		       Presentation to generate the final output audio signal
+		       for playback.  This option must be separated from the
+		       rest with a '|'. Several '|' separated entries can be
+		       defined, and at least one must be set.
+
+		       It takes the following ":"-separated key=value options:
+
+		       stg The stream_group_id for an Audio Element which this
+			   sub-mix refers to
+
+		       parameter_id
+			   An identifier parameters blocks in frames may refer
+			   to, for applying any processing to the referenced
+			   and rendered Audio Element before being summed with
+			   other processed Audio Elements
+
+		       parameter_rate
+			   The sample rate duration fields in parameters
+			   blocks in frames that refer to this parameter_id
+			   are expressed as
+
+		       default_mix_gain
+			   Default mix gain value to apply when there are no
+			   parameter blocks sharing the same parameter_id for
+			   a given frame
+
+		       annotations
+			   A key=value string describing the sub-mix element
+			   where "key" is a string conforming to BCP-47 that
+			   specifies the language for the "value" string.
+			   "key" must be the same as the one in the mix's
+			   annotations
+
+		       headphones_rendering_mode
+			   Indicates whether the input channel-based Audio
+			   Element is rendered to stereo loudspeakers or
+			   spatialized with a binaural renderer when played
+			   back on headphones.	This has no effect if the
+			   referenced Audio Element's audio_element_type is
+			   set to channel.
+
+			   The following values are supported:
+
+			   stereo
+			   binaural
+		   layout
+		       Specifies the layouts for this sub-mix on which the
+		       loudness information was measured.  This option must be
+		       separated from the rest with a '|'. Several '|'
+		       separated entries can be defined, and at least one must
+		       be set.
+
+		       It takes the following ":"-separated key=value options:
+
+		       layout_type
+			   loudspeakers
+			       The layout follows the loudspeaker sound system
+			       convention of ITU-2051-3.
+
+			   binaural
+			       The layout is binaural.
+
+		       sound_system
+			   Channel layout matching one of Sound Systems A to J
+			   of ITU-2051-3, plus 7.1.2 and 3.1.2 This has no
+			   effect if layout_type is set to binaural.
+
+		       integrated_loudness
+			   The program integrated loudness information, as
+			   defined in ITU-1770-4.
+
+		       digital_peak
+			   The digital (sampled) peak value of the audio
+			   signal, as defined in ITU-1770-4.
+
+		       true_peak
+			   The true peak of the audio signal, as defined in
+			   ITU-1770-4.
+
+		       dialog_anchored_loudness
+			   The Dialogue loudness information, as defined in
+			   ITU-1770-4.
+
+		       album_anchored_loudness
+			   The Album loudness information, as defined in
+			   ITU-1770-4.
+
+	       annotations
+		   A key=value string string describing the mix where "key" is
+		   a string conforming to BCP-47 that specifies the language
+		   for the "value" string. "key" must be the same as the ones
+		   in all sub-mix element's annotationss
+
+	   E.g. to create an scalable 5.1 IAMF file from several WAV input
+	   files
+
+		   ffmpeg -i front.wav -i back.wav -i center.wav -i lfe.wav
+		   -map 0:0 -map 1:0 -map 2:0 -map 3:0 -c:a opus
+		   -stream_group type=iamf_audio_element:id=1:st=0:st=1:st=2:st=3,
+		   demixing=parameter_id=998,
+		   recon_gain=parameter_id=101,
+		   layer=ch_layout=stereo,
+		   layer=ch_layout=5.1,
+		   -stream_group type=iamf_mix_presentation:id=2:stg=0:annotations=en-us=Mix_Presentation,
+		   submix=parameter_id=100:parameter_rate=48000|element=stg=0:parameter_id=100:annotations=en-us=Scalable_Submix|layout=sound_system=stereo|layout=sound_system=5.1
+		   -streamid 0:0 -streamid 1:1 -streamid 2:2 -streamid 3:3 output.iamf
+
+	   To copy the two stream groups (Audio Element and Mix Presentation)
+	   from an input IAMF file with four streams into an mp4 output
+
+		   ffmpeg -i input.iamf -c:a copy -stream_group map=0=0:st=0:st=1:st=2:st=3 -stream_group map=0=1:stg=0
+		   -streamid 0:0 -streamid 1:1 -streamid 2:2 -streamid 3:3 output.mp4
+
        -target type (output)
 	   Specify target file type ("vcd", "svcd", "dvd", "dv", "dv50"). type
 	   may be prefixed with "pal-", "ntsc-" or "film-" to use the
@@ -1148,11 +1441,6 @@ OPTIONS
 	   See the -filter_complex option if you want to create filtergraphs
 	   with multiple inputs and/or outputs.
 
-       -filter_script[:stream_specifier] filename (output,per-stream)
-	   This option is similar to -filter, the only difference is that its
-	   argument is the name of the file from which a filtergraph
-	   description is to be read.
-
        -reinit_filter[:stream_specifier] integer (input,per-stream)
 	   This boolean option determines if the filtergraph(s) to which this
 	   stream is fed gets reinitialized when input frame parameters change
@@ -1203,10 +1491,10 @@ OPTIONS
 	   shell.
 
        -debug_ts (global)
-	   Print timestamp information. It is off by default. This option is
-	   mostly useful for testing and debugging purposes, and the output
-	   format may change from one version to another, so it should not be
-	   employed by portable scripts.
+	   Print timestamp/latency information. It is off by default. This
+	   option is mostly useful for testing and debugging purposes, and the
+	   output format may change from one version to another, so it should
+	   not be employed by portable scripts.
 
 	   See also the option "-fdebug ts".
 
@@ -1393,7 +1681,11 @@ OPTIONS
 	   the input (or graph output) and automatic conversions are disabled.
 
        -sws_flags flags (input/output)
-	   Set SwScaler flags.
+	   Set default flags for the libswscale library. These flags are used
+	   by automatically inserted "scale" filters and those within simple
+	   filtergraphs, if not overridden within the filtergraph definition.
+
+	   See the ffmpeg-scaler manual for a list of scaler options.
 
        -rc_override[:stream_specifier] override (output,per-stream)
 	   Rate control override for specific intervals, formatted as
@@ -1401,45 +1693,24 @@ OPTIONS
 	   beginning and end frame numbers, last one is quantizer to use if
 	   positive, or quality factor if negative.
 
-       -psnr
-	   Calculate PSNR of compressed frames. This option is deprecated,
-	   pass the PSNR flag to the encoder instead, using "-flags +psnr".
-
        -vstats
-	   Dump video coding statistics to vstats_HHMMSS.log.
+	   Dump video coding statistics to vstats_HHMMSS.log. See the vstats
+	   file format section for the format description.
 
        -vstats_file file
-	   Dump video coding statistics to file.
+	   Dump video coding statistics to file. See the vstats file format
+	   section for the format description.
 
        -vstats_version file
-	   Specifies which version of the vstats format to use. Default is 2.
-
-	   version = 1 :
-
-	   "frame= %5d q= %2.1f PSNR= %6.2f f_size= %6d s_size= %8.0fkB time=
-	   %0.3f br= %7.1fkbits/s avg_br= %7.1fkbits/s"
-
-	   version > 1:
-
-	   "out= %2d st= %2d frame= %5d q= %2.1f PSNR= %6.2f f_size= %6d
-	   s_size= %8.0fkB time= %0.3f br= %7.1fkbits/s avg_br= %7.1fkbits/s"
-
-       -top[:stream_specifier] n (output,per-stream)
-	   top=1/bottom=0/auto=-1 field first
+	   Specify which version of the vstats format to use. Default is 2.
+	   See the vstats file format section for the format description.
 
        -vtag fourcc/tag (output)
 	   Force video tag/fourcc. This is an alias for "-tag:v".
 
-       -qphist (global)
-	   Show QP histogram
-
-       -vbsf bitstream_filter
-	   Deprecated see -bsf
-
        -force_key_frames[:stream_specifier] time[,time...] (output,per-stream)
        -force_key_frames[:stream_specifier] expr:expr (output,per-stream)
        -force_key_frames[:stream_specifier] source (output,per-stream)
-       -force_key_frames[:stream_specifier] source_no_drop (output,per-stream)
 	   force_key_frames can take arguments of the following form:
 
 	   time[,time...]
@@ -1499,14 +1770,9 @@ OPTIONS
 	   source
 	       If the argument is "source", ffmpeg will force a key frame if
 	       the current frame being encoded is marked as a key frame in its
-	       source.
-
-	   source_no_drop
-	       If the argument is "source_no_drop", ffmpeg will force a key
-	       frame if the current frame being encoded is marked as a key
-	       frame in its source.  In cases where this particular source
-	       frame has to be dropped, enforce the next available frame to
-	       become a key frame instead.
+	       source.	In cases where this particular source frame has to be
+	       dropped, enforce the next available frame to become a key frame
+	       instead.
 
 	   Note that forcing too many keyframes is very harmful for the
 	   lookahead algorithms of certain encoders: using fixed-GOP options
@@ -1545,13 +1811,55 @@ OPTIONS
 	       device is the number of the Direct3D 9 display adapter.
 
 	   d3d11va
-	       device is the number of the Direct3D 11 display adapter.
+	       device is the number of the Direct3D 11 display adapter.  If
+	       not specified, it will attempt to use the default Direct3D 11
+	       display adapter or the first Direct3D 11 display adapter whose
+	       hardware VendorId is specified by vendor_id.
+
+	       Examples:
+
+	       -init_hw_device d3d11va
+		   Create a d3d11va device on the default Direct3D 11 display
+		   adapter.
+
+	       -init_hw_device d3d11va:1
+		   Create a d3d11va device on the Direct3D 11 display adapter
+		   specified by index 1.
+
+	       -init_hw_device d3d11va:,vendor_id=0x8086
+		   Create a d3d11va device on the first Direct3D 11 display
+		   adapter whose hardware VendorId is 0x8086.
 
 	   vaapi
-	       device is either an X11 display name or a DRM render node.  If
-	       not specified, it will attempt to open the default X11 display
-	       ($DISPLAY) and then the first DRM render node
-	       (/dev/dri/renderD128).
+	       device is either an X11 display name, a DRM render node or a
+	       DirectX adapter index.  If not specified, it will attempt to
+	       open the default X11 display ($DISPLAY) and then the first DRM
+	       render node (/dev/dri/renderD128), or the default DirectX
+	       adapter on Windows.
+
+	       The following options are recognized:
+
+	       kernel_driver
+		   When device is not specified, use this option to specify
+		   the name of the kernel driver associated with the desired
+		   device. This option is available only when the hardware
+		   acceleration method drm and vaapi are enabled.
+
+	       Examples:
+
+	       -init_hw_device vaapi
+		   Create a vaapi device on the default device.
+
+	       -init_hw_device vaapi:/dev/dri/renderD129
+		   Create a vaapi device on DRM render node
+		   /dev/dri/renderD129.
+
+	       -init_hw_device vaapi:1
+		   Create a vaapi device on DirectX adapter 1.
+
+	       -init_hw_device vaapi:,kernel_driver=i915
+		   Create a vaapi device on a device associated with kernel
+		   driver i915.
 
 	   vdpau
 	       device is an X11 display name.  If not specified, it will
@@ -1573,11 +1881,29 @@ OPTIONS
 	       platform-appropriate subdevice (dxva2 or d3d11va or vaapi) and
 	       then deriving a QSV device from that.)
 
-	       Alternatively, child_device_type helps to choose platform-
-	       appropriate subdevice type.  On Windows d3d11va is used as
-	       default subdevice type.
+	       The following options are recognized:
+
+	       child_device
+		   Specify a DRM render node on Linux or DirectX adapter on
+		   Windows.
+
+	       child_device_type
+		   Choose platform-appropriate subdevice type. On Windows
+		   d3d11va is used as default subdevice type when
+		   "--enable-libvpl" is specified at configuration time, dxva2
+		   is used as default subdevice type when "--enable-libmfx" is
+		   specified at configuration time. On Linux user can use
+		   vaapi only as subdevice type.
 
 	       Examples:
+
+	       -init_hw_device qsv:hw,child_device=/dev/dri/renderD129
+		   Create a QSV device with MFX_IMPL_HARDWARE on DRM render
+		   node /dev/dri/renderD129.
+
+	       -init_hw_device qsv:hw,child_device=1
+		   Create a QSV device with MFX_IMPL_HARDWARE on DirectX
+		   adapter 1.
 
 	       -init_hw_device qsv:hw,child_device_type=d3d11va
 		   Choose the GPU subdevice with type d3d11va and create QSV
@@ -1586,6 +1912,15 @@ OPTIONS
 	       -init_hw_device qsv:hw,child_device_type=dxva2
 		   Choose the GPU subdevice with type dxva2 and create QSV
 		   device with MFX_IMPL_HARDWARE.
+
+	       -init_hw_device qsv:hw,child_device=1,child_device_type=d3d11va
+		   Create a QSV device with MFX_IMPL_HARDWARE on DirectX
+		   adapter 1 with subdevice type d3d11va.
+
+	       -init_hw_device vaapi=va:/dev/dri/renderD129 -init_hw_device
+	       qsv=hw1@va
+		   Create a VAAPI device called va on /dev/dri/renderD129,
+		   then derive a QSV device called hw1 from device va.
 
 	   opencl
 	       device selects the platform and device as
@@ -1804,15 +2139,25 @@ OPTIONS
        -atag fourcc/tag (output)
 	   Force audio tag/fourcc. This is an alias for "-tag:a".
 
-       -absf bitstream_filter
-	   Deprecated, see -bsf
+       -ch_layout[:stream_specifier] layout (input/output,per-stream)
+	   Alias for "-channel_layout".
+
+       -channel_layout[:stream_specifier] layout (input/output,per-stream)
+	   Set the audio channel layout. For output streams it is set by
+	   default to the input channel layout. For input streams it overrides
+	   the channel layout of the input. Not all decoders respect the
+	   overridden channel layout. This option also sets the channel layout
+	   for audio grabbing devices and raw demuxers and is mapped to the
+	   corresponding demuxer option.
 
        -guess_layout_max channels (input,per-stream)
 	   If some input channel layout is not known, try to guess only if it
 	   corresponds to at most the specified number of channels. For
 	   example, 2 tells to ffmpeg to recognize 1 channel as mono and 2
 	   channels as stereo but not 6 channels as 5.1. The default is to
-	   always try to guess. Use 0 to disable all guessing.
+	   always try to guess. Use 0 to disable all guessing. Using the
+	   "-channel_layout" option to explicitly specify an input layout also
+	   disables guessing.
 
    Subtitle options
        -scodec codec (input/output)
@@ -1826,9 +2171,6 @@ OPTIONS
 	   As an output option, disables subtitle recording i.e. automatic
 	   selection or mapping of any subtitle stream. For full manual
 	   control see the "-map" option.
-
-       -sbsf bitstream_filter
-	   Deprecated, see -bsf
 
    Advanced Subtitle options
        -fix_sub_duration
@@ -1854,7 +2196,7 @@ OPTIONS
 	   forms for specifying the data source(s): the first selects one or
 	   more streams from some input file (specified with "-i"), the second
 	   takes an output from some complex filtergraph (specified with
-	   "-filter_complex" or "-filter_complex_script").
+	   "-filter_complex").
 
 	   In the first form, an output stream is created for every stream
 	   from the input file with the index input_file_id. If
@@ -1943,75 +2285,6 @@ OPTIONS
        -copy_unknown
 	   Allow input streams with unknown type to be copied instead of
 	   failing if copying such streams is attempted.
-
-       -map_channel
-       [input_file_id.stream_specifier.channel_id|-1][?][:output_file_id.stream_specifier]
-	   This option is deprecated and will be removed. It can be replaced
-	   by the pan filter. In some cases it may be easier to use some
-	   combination of the channelsplit, channelmap, or amerge filters.
-
-	   Map an audio channel from a given input to an output. If
-	   output_file_id.stream_specifier is not set, the audio channel will
-	   be mapped on all the audio streams.
-
-	   Using "-1" instead of input_file_id.stream_specifier.channel_id
-	   will map a muted channel.
-
-	   A trailing "?" will allow the map_channel to be optional: if the
-	   map_channel matches no channel the map_channel will be ignored
-	   instead of failing.
-
-	   For example, assuming INPUT is a stereo audio file, you can switch
-	   the two audio channels with the following command:
-
-		   ffmpeg -i INPUT -map_channel 0.0.1 -map_channel 0.0.0 OUTPUT
-
-	   If you want to mute the first channel and keep the second:
-
-		   ffmpeg -i INPUT -map_channel -1 -map_channel 0.0.1 OUTPUT
-
-	   The order of the "-map_channel" option specifies the order of the
-	   channels in the output stream. The output channel layout is guessed
-	   from the number of channels mapped (mono if one "-map_channel",
-	   stereo if two, etc.). Using "-ac" in combination of "-map_channel"
-	   makes the channel gain levels to be updated if input and output
-	   channel layouts don't match (for instance two "-map_channel"
-	   options and "-ac 6").
-
-	   You can also extract each channel of an input to specific outputs;
-	   the following command extracts two channels of the INPUT audio
-	   stream (file 0, stream 0) to the respective OUTPUT_CH0 and
-	   OUTPUT_CH1 outputs:
-
-		   ffmpeg -i INPUT -map_channel 0.0.0 OUTPUT_CH0 -map_channel 0.0.1 OUTPUT_CH1
-
-	   The following example splits the channels of a stereo input into
-	   two separate streams, which are put into the same output file:
-
-		   ffmpeg -i stereo.wav -map 0:0 -map 0:0 -map_channel 0.0.0:0.0 -map_channel 0.0.1:0.1 -y out.ogg
-
-	   Note that currently each output stream can only contain channels
-	   from a single input stream; you can't for example use
-	   "-map_channel" to pick multiple input audio channels contained in
-	   different streams (from the same or different files) and merge them
-	   into a single output stream. It is therefore not currently
-	   possible, for example, to turn two separate mono streams into a
-	   single stereo stream. However splitting a stereo stream into two
-	   single channel mono streams is possible.
-
-	   If you need this feature, a possible workaround is to use the
-	   amerge filter. For example, if you need to merge a media (here
-	   input.mkv) with 2 mono audio streams into one single stereo channel
-	   audio stream (and keep the video stream), you can use the following
-	   command:
-
-		   ffmpeg -i input.mkv -filter_complex "[0:1] [0:2] amerge" -c:a pcm_s16le -c:v copy output.mkv
-
-	   To map the first two audio channels from the first input, and using
-	   the trailing "?", ignore the audio channel mapping if the first
-	   input is mono instead of stereo:
-
-		   ffmpeg -i INPUT -map_channel 0.0.0 -map_channel 0.0.1? OUTPUT
 
        -map_metadata[:metadata_spec_out] infile[:metadata_spec_in]
        (output,per-metadata)
@@ -2105,6 +2378,10 @@ OPTIONS
 	   Read input at native frame rate. This is equivalent to setting
 	   "-readrate 1".
 
+       -readrate_initial_burst seconds
+	   Set an initial read burst time, in seconds, after which
+	   -re/-readrate will be enforced.
+
        -vsync parameter (global)
        -fps_mode[:stream_specifier] parameter (output,per-stream)
 	   Set video sync method / framerate mode. vsync is applied to all
@@ -2126,10 +2403,6 @@ OPTIONS
 	       Frames are passed through with their timestamp or dropped so as
 	       to prevent 2 frames from having the same timestamp.
 
-	   drop
-	       As passthrough but destroys all timestamps, making the muxer
-	       generate fresh timestamps based on frame-rate.
-
 	   auto (-1)
 	       Chooses between cfr and vfr depending on muxer capabilities.
 	       This is the default method.
@@ -2148,13 +2421,6 @@ OPTIONS
 	   frame.  The default is -1.1. One possible usecase is to avoid
 	   framedrops in case of noisy timestamps or to increase frame drop
 	   precision in case of exact timestamps.
-
-       -adrift_threshold time
-	   Set the minimum difference between timestamps and audio data (in
-	   seconds) to trigger adding/dropping samples to make it match the
-	   timestamps. This option effectively is a threshold to select
-	   between hard (add/drop) and soft (squeeze/stretch) compensation.
-	   "-async" must be set to a positive value.
 
        -apad parameters (output,per-stream)
 	   Pad the output audio stream(s). This is the same as applying "-af
@@ -2203,23 +2469,24 @@ OPTIONS
 	   Default value is -1.
 
        -enc_time_base[:stream_specifier] timebase (output,per-stream)
-	   Set the encoder timebase. timebase is a floating point number, and
-	   can assume one of the following values:
+	   Set the encoder timebase. timebase can assume one of the following
+	   values:
 
 	   0   Assign a default value according to the media type.
 
 	       For video - use 1/framerate, for audio - use 1/samplerate.
 
-	   -1  Use the input stream timebase when possible.
+	   demux
+	       Use the timebase from the demuxer.
 
-	       If an input stream is not available, the default timebase will
-	       be used.
+	   filter
+	       Use the timebase from the filtergraph.
 
-	   >0  Use the provided number as the timebase.
+	   a positive number
+	       Use the provided number as the timebase.
 
 	       This field can be provided as a ratio of two integers (e.g.
-	       1:24, 1:48000) or as a floating point number (e.g. 0.04166,
-	       2.0833e-5)
+	       1:24, 1:48000) or as a decimal number (e.g. 0.04166, 2.0833e-5)
 
 	   Default value is 0.
 
@@ -2245,13 +2512,37 @@ OPTIONS
 
 	   The default value is 10 seconds.
 
-       -dts_delta_threshold
-	   Timestamp discontinuity delta threshold.
+       -dts_delta_threshold threshold
+	   Timestamp discontinuity delta threshold, expressed as a decimal
+	   number of seconds.
 
-       -dts_error_threshold seconds
-	   Timestamp error delta threshold. This threshold use to discard
-	   crazy/damaged timestamps and the default is 30 hours which is
-	   arbitrarily picked and quite conservative.
+	   The timestamp discontinuity correction enabled by this option is
+	   only applied to input formats accepting timestamp discontinuity
+	   (for which the "AVFMT_TS_DISCONT" flag is enabled), e.g. MPEG-TS
+	   and HLS, and is automatically disabled when employing the "-copyts"
+	   option (unless wrapping is detected).
+
+	   If a timestamp discontinuity is detected whose absolute value is
+	   greater than threshold, ffmpeg will remove the discontinuity by
+	   decreasing/increasing the current DTS and PTS by the corresponding
+	   delta value.
+
+	   The default value is 10.
+
+       -dts_error_threshold threshold
+	   Timestamp error delta threshold, expressed as a decimal number of
+	   seconds.
+
+	   The timestamp correction enabled by this option is only applied to
+	   input formats not accepting timestamp discontinuity (for which the
+	   "AVFMT_TS_DISCONT" flag is not enabled).
+
+	   If a timestamp discontinuity is detected whose absolute value is
+	   greater than threshold, ffmpeg will drop the PTS/DTS timestamp
+	   value.
+
+	   The default value is "3600*30" (30 hours), which is arbitrarily
+	   picked and quite conservative.
 
        -muxdelay seconds (output)
 	   Set the maximum demux-decode delay.
@@ -2270,14 +2561,39 @@ OPTIONS
 
 		   ffmpeg -i inurl -streamid 0:33 -streamid 1:36 out.ts
 
-       -bsf[:stream_specifier] bitstream_filters (output,per-stream)
-	   Set bitstream filters for matching streams. bitstream_filters is a
-	   comma-separated list of bitstream filters. Use the "-bsfs" option
-	   to get the list of bitstream filters.
+       -bsf[:stream_specifier] bitstream_filters (input/output,per-stream)
+	   Apply bitstream filters to matching streams. The filters are
+	   applied to each packet as it is received from the demuxer (when
+	   used as an input option) or before it is sent to the muxer (when
+	   used as an output option).
 
-		   ffmpeg -i h264.mp4 -c:v copy -bsf:v h264_mp4toannexb -an out.h264
+	   bitstream_filters is a comma-separated list of bitstream filter
+	   specifications, each of the form
+
+		   <filter>[=<optname0>=<optval0>:<optname1>=<optval1>:...]
+
+	   Any of the ',=:' characters that are to be a part of an option
+	   value need to be escaped with a backslash.
+
+	   Use the "-bsfs" option to get the list of bitstream filters.
+
+	   E.g.
+
+		   ffmpeg -bsf:v h264_mp4toannexb -i h264.mp4 -c:v copy -an out.h264
+
+	   applies the "h264_mp4toannexb" bitstream filter (which converts
+	   MP4-encapsulated H.264 stream to Annex B) to the input video
+	   stream.
+
+	   On the other hand,
 
 		   ffmpeg -i file.mov -an -vn -bsf:s mov2textsub -c:s copy -f rawvideo sub.txt
+
+	   applies the "mov2textsub" bitstream filter (which extracts text
+	   from MOV subtitles) to the output subtitle stream. Note, however,
+	   that since both examples use "-c copy", it matters little whether
+	   the filters are applied on input or output - that would change if
+	   transcoding was happening.
 
        -tag[:stream_specifier] codec_tag (input/output,per-stream)
 	   Force a tag/fourcc for matching streams.
@@ -2294,12 +2610,56 @@ OPTIONS
 	   and one output of the same type -- see the -filter options.
 	   filtergraph is a description of the filtergraph, as described in
 	   the ``Filtergraph syntax'' section of the ffmpeg-filters manual.
+	   This option may be specified multiple times - each use creates a
+	   new complex filtergraph.
 
-	   Input link labels must refer to input streams using the
-	   "[file_index:stream_specifier]" syntax (i.e. the same as -map
-	   uses). If stream_specifier matches multiple streams, the first one
-	   will be used. An unlabeled input will be connected to the first
-	   unused input stream of the matching type.
+	   Inputs to a complex filtergraph may come from different source
+	   types, distinguished by the format of the corresponding link label:
+
+	   o   To connect an input stream, use "[file_index:stream_specifier]"
+	       (i.e. the same syntax as -map). If stream_specifier matches
+	       multiple streams, the first one will be used.
+
+	   o   To connect a loopback decoder use [dec:dec_idx], where dec_idx
+	       is the index of the loopback decoder to be connected to given
+	       input.
+
+	   o   To connect an output from another complex filtergraph, use its
+	       link label. E.g the following example:
+
+		       ffmpeg -i input.mkv \
+			 -filter_complex '[0:v]scale=size=hd1080,split=outputs=2[for_enc][orig_scaled]' \
+			 -c:v libx264 -map '[for_enc]' output.mkv \
+			 -dec 0:0 \
+			 -filter_complex '[dec:0][orig_scaled]hstack[stacked]' \
+			 -map '[stacked]' -c:v ffv1 comparison.mkv
+
+	       reads an input video and
+
+	       o   (line 2) uses a complex filtergraph with one input and two
+		   outputs to scale the video to 1920x1080 and duplicate the
+		   result to both outputs;
+
+	       o   (line 3) encodes one scaled output with "libx264" and
+		   writes the result to output.mkv;
+
+	       o   (line 4) decodes this encoded stream with a loopback
+		   decoder;
+
+	       o   (line 5) places the output of the loopback decoder (i.e.
+		   the "libx264"-encoded video) side by side with the scaled
+		   original input;
+
+	       o   (line 6) combined video is then losslessly encoded and
+		   written into comparison.mkv.
+
+	       Note that the two filtergraphs cannot be combined into one,
+	       because then there would be a cycle in the transcoding pipeline
+	       (filtergraph output goes to encoding, from there to decoding,
+	       then back to the same graph), and such cycles are not allowed.
+
+	   An unlabeled input will be connected to the first unused input
+	   stream of the matching type.
 
 	   Output link labels are referred to with -map. Unlabeled outputs are
 	   added to the first output file.
@@ -2358,11 +2718,6 @@ OPTIONS
        -lavfi filtergraph (global)
 	   Define a complex filtergraph, i.e. one with arbitrary number of
 	   inputs and/or outputs. Equivalent to -filter_complex.
-
-       -filter_complex_script filename (global)
-	   This option is similar to -filter_complex, the only difference is
-	   that its argument is the name of the file from which a complex
-	   filtergraph description is to be read.
 
        -accurate_seek (input)
 	   This option enables or disables accurate seeking in input files
@@ -2517,8 +2872,9 @@ OPTIONS
 	       decoder) that corresponds to this output frame or packet. -1 if
 	       unavailable.
 
-	   tb  Encoder timebase, as a rational number num/den. Note that this
-	       may be different from the timebase used by the muxer.
+	   tb  Timebase in which this frame/packet's timestamps are expressed,
+	       as a rational number num/den. Note that encoder and muxer may
+	       use different timebases.
 
 	   tbi Timebase for ptsi, as a rational number num/den. Available when
 	       ptsi is available, 0/1 otherwise.
@@ -2540,28 +2896,41 @@ OPTIONS
 	       number. Equal to ptsi multiplied by tbi. Printed as inf when
 	       not available.
 
-	   dts Decoding timestamp of the packet, as an integer. Should be
-	       multiplied by the timebase to compute presentation time. Post-
-	       encoding only.
+	   dts (packet)
+	       Decoding timestamp of the packet, as an integer. Should be
+	       multiplied by the timebase to compute presentation time.
 
-	   dt  Decoding time of the frame or packet, as a decimal number.
+	   dt (packet)
+	       Decoding time of the frame or packet, as a decimal number.
 	       Equal to dts multiplied by tb.
 
-	   sn  Number of audio samples sent to the encoder so far. Audio and
-	       pre-encoding only.
+	   sn (frame,audio)
+	       Number of audio samples sent to the encoder so far.
 
-	   samp
-	       Number of audio samples in the frame. Audio and pre-encoding
-	       only.
+	   samp (frame,audio)
+	       Number of audio samples in the frame.
 
-	   size
-	       Size of the encoded packet in bytes. Post-encoding only.
+	   size (packet)
+	       Size of the encoded packet in bytes.
 
-	   br  Current bitrate in bits per second. Post-encoding only.
+	   br (packet)
+	       Current bitrate in bits per second.
 
-	   abr Average bitrate for the whole stream so far, in bits per
-	       second, -1 if it cannot be determined at this point. Post-
-	       encoding only.
+	   abr (packet)
+	       Average bitrate for the whole stream so far, in bits per
+	       second, -1 if it cannot be determined at this point.
+
+	   key (packet)
+	       Character 'K' if the packet contains a keyframe, character 'N'
+	       otherwise.
+
+	   Directives tagged with packet may only be used with
+	   -stats_enc_post_fmt and -stats_mux_pre_fmt.
+
+	   Directives tagged with frame may only be used with
+	   -stats_enc_pre_fmt.
+
+	   Directives tagged with audio may only be used with audio streams.
 
 	   The default format strings are:
 
@@ -2632,6 +3001,55 @@ OPTIONS
 
        If no such file is found, then ffmpeg will search for a file named
        arg.avpreset in the same directories.
+
+   vstats file format
+       The "-vstats" and "-vstats_file" options enable generation of a file
+       containing statistics about the generated video outputs.
+
+       The "-vstats_version" option controls the format version of the
+       generated file.
+
+       With version 1 the format is:
+
+	       frame= <FRAME> q= <FRAME_QUALITY> PSNR= <PSNR> f_size= <FRAME_SIZE> s_size= <STREAM_SIZE>kB time= <TIMESTAMP> br= <BITRATE>kbits/s avg_br= <AVERAGE_BITRATE>kbits/s
+
+       With version 2 the format is:
+
+	       out= <OUT_FILE_INDEX> st= <OUT_FILE_STREAM_INDEX> frame= <FRAME_NUMBER> q= <FRAME_QUALITY>f PSNR= <PSNR> f_size= <FRAME_SIZE> s_size= <STREAM_SIZE>kB time= <TIMESTAMP> br= <BITRATE>kbits/s avg_br= <AVERAGE_BITRATE>kbits/s
+
+       The value corresponding to each key is described below:
+
+       avg_br
+	   average bitrate expressed in Kbits/s
+
+       br  bitrate expressed in Kbits/s
+
+       frame
+	   number of encoded frame
+
+       out out file index
+
+       PSNR
+	   Peak Signal to Noise Ratio
+
+       q   quality of the frame
+
+       f_size
+	   encoded packet size expressed as number of bytes
+
+       s_size
+	   stream size expressed in KiB
+
+       st  out file stream index
+
+       time
+	   time of the packet
+
+       type
+	   picture type
+
+       See also the -stats_enc options for an alternative way to show encoding
+       statistics.
 
 EXAMPLES
    Video and Audio grabbing
@@ -2792,9 +3210,9 @@ AUTHORS
        The FFmpeg developers.
 
        For details about the authorship, see the Git history of the project
-       (git://source.ffmpeg.org/ffmpeg), e.g. by typing the command git log in
+       (https://git.ffmpeg.org/ffmpeg), e.g. by typing the command git log in
        the FFmpeg source directory, or browsing the online repository at
-       <http://source.ffmpeg.org>.
+       <https://git.ffmpeg.org/ffmpeg>.
 
        Maintainers for the specific components are listed in the file
        MAINTAINERS in the source code tree.

@@ -846,6 +846,9 @@ SYNTAX
        6.0(front)
 	   FL+FR+FLC+FRC+SL+SR
 
+       3.1.2
+	   FL+FR+FC+LFE+TFL+TFR
+
        hexagonal
 	   FL+FR+FC+BL+BR+BC
 
@@ -869,7 +872,7 @@ SYNTAX
        7.1(wide-side)
 	   FL+FR+FC+LFE+FLC+FRC+SL+SR
 
-       7.1(top)
+       5.1.2
 	   FL+FR+FC+LFE+BL+BR+TFL+TFR
 
        octagonal
@@ -877,6 +880,21 @@ SYNTAX
 
        cube
 	   FL+FR+BL+BR+TFL+TFR+TBL+TBR
+
+       5.1.4
+	   FL+FR+FC+LFE+BL+BR+TFL+TFR+TBL+TBR
+
+       7.1.2
+	   FL+FR+FC+LFE+BL+BR+SL+SR+TFL+TFR
+
+       7.1.4
+	   FL+FR+FC+LFE+BL+BR+SL+SR+TFL+TFR+TBL+TBR
+
+       7.2.3
+	   FL+FR+FC+LFE+BL+BR+SL+SR+TFL+TFR+TBC+LFE2
+
+       9.1.4
+	   FL+FR+FC+LFE+BL+BR+FLC+FRC+SL+SR+TFL+TFR+TBL+TBR
 
        hexadecagonal
 	   FL+FR+FC+BL+BR+BC+SL+SR+WL+WR+TBL+TBR+TBC+TFC+TFL+TFR
@@ -937,6 +955,11 @@ EXPRESSION EVALUATION
 
        The following unary operators are available: "+", "-".
 
+       Some internal variables can be used to store and load intermediary
+       results. They can be accessed using the "ld" and "st" functions with an
+       index argument varying from 0 to 9 to specify which internal variable
+       to access.
+
        The following functions are available:
 
        abs(x)
@@ -951,7 +974,7 @@ EXPRESSION EVALUATION
        atan(x)
 	   Compute arctangent of x.
 
-       atan2(x, y)
+       atan2(y, x)
 	   Compute principal value of the arc tangent of y/x.
 
        between(x, min, max)
@@ -1034,9 +1057,9 @@ EXPRESSION EVALUATION
        isnan(x)
 	   Return 1.0 if x is NAN, 0.0 otherwise.
 
-       ld(var)
-	   Load the value of the internal variable with number var, which was
-	   previously stored with st(var, expr).  The function returns the
+       ld(idx)
+	   Load the value of the internal variable with index idx, which was
+	   previously stored with st(idx, expr).  The function returns the
 	   loaded value.
 
        lerp(x, y, z)
@@ -1069,14 +1092,29 @@ EXPRESSION EVALUATION
        print(t)
        print(t, l)
 	   Print the value of expression t with loglevel l. If l is not
-	   specified then a default log level is used.	Returns the value of
+	   specified then a default log level is used.	Return the value of
 	   the expression printed.
 
-	   Prints t with loglevel l
+       random(idx)
+	   Return a pseudo random value between 0.0 and 1.0. idx is the index
+	   of the internal variable used to save the seed/state, which can be
+	   previously stored with "st(idx)".
 
-       random(x)
-	   Return a pseudo random value between 0.0 and 1.0. x is the index of
-	   the internal variable which will be used to save the seed/state.
+	   To initialize the seed, you need to store the seed value as a
+	   64-bit unsigned integer in the internal variable with index idx.
+
+	   For example, to store the seed with value 42 in the internal
+	   variable with index 0 and print a few random values:
+
+		   st(0,42); print(random(0)); print(random(0)); print(random(0))
+
+       randomi(idx, min, max)
+	   Return a pseudo random value in the interval between min and max.
+	   idx is the index of the internal variable which will be used to
+	   save the seed/state, which can be previously stored with "st(idx)".
+
+	   To initialize the seed, you need to store the seed value as a
+	   64-bit unsigned integer in the internal variable with index idx.
 
        root(expr, max)
 	   Find an input value for which the function represented by expr with
@@ -1110,12 +1148,15 @@ EXPRESSION EVALUATION
        squish(x)
 	   Compute expression "1/(1 + exp(4*x))".
 
-       st(var, expr)
-	   Store the value of the expression expr in an internal variable. var
-	   specifies the number of the variable where to store the value, and
+       st(idx, expr)
+	   Store the value of the expression expr in an internal variable. idx
+	   specifies the index of the variable where to store the value, and
 	   it is a value ranging from 0 to 9. The function returns the value
-	   stored in the internal variable.  Note, Variables are currently not
-	   shared between expressions.
+	   stored in the internal variable.
+
+	   The stored value can be retrieved with "ld(var)".
+
+	   Note: variables are currently not shared between expressions.
 
        tan(x)
 	   Compute tangent of x.
@@ -1124,16 +1165,16 @@ EXPRESSION EVALUATION
 	   Compute hyperbolic tangent of x.
 
        taylor(expr, x)
-       taylor(expr, x, id)
+       taylor(expr, x, idx)
 	   Evaluate a Taylor series at x, given an expression representing the
-	   "ld(id)"-th derivative of a function at 0.
+	   "ld(idx)"-th derivative of a function at 0.
 
 	   When the series does not converge the result is undefined.
 
-	   ld(id) is used to represent the derivative order in expr, which
+	   ld(idx) is used to represent the derivative order in expr, which
 	   means that the given expression will be evaluated multiple times
 	   with various input values that the expression can access through
-	   "ld(id)". If id is not specified then 0 is assumed.
+	   "ld(idx)". If idx is not specified then 0 is assumed.
 
 	   Note, when you have the derivatives at y instead of 0,
 	   "taylor(expr, x-y)" can be used.
@@ -1234,9 +1275,9 @@ AUTHORS
        The FFmpeg developers.
 
        For details about the authorship, see the Git history of the project
-       (git://source.ffmpeg.org/ffmpeg), e.g. by typing the command git log in
+       (https://git.ffmpeg.org/ffmpeg), e.g. by typing the command git log in
        the FFmpeg source directory, or browsing the online repository at
-       <http://source.ffmpeg.org>.
+       <https://git.ffmpeg.org/ffmpeg>.
 
        Maintainers for the specific components are listed in the file
        MAINTAINERS in the source code tree.

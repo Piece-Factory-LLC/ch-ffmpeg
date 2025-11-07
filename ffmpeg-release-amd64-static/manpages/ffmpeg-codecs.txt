@@ -9,7 +9,7 @@ DESCRIPTION
 
 CODEC OPTIONS
        libavcodec provides some generic global options, which can be set on
-       all the encoders and decoders. In addition each codec may support so-
+       all the encoders and decoders. In addition, each codec may support so-
        called private options, which are specific for a given codec.
 
        Sometimes, a global option may only affect a specific kind of codec,
@@ -730,6 +730,10 @@ CODEC OPTIONS
 	   documentation.
 
        level integer (encoding,audio,video)
+	   Set the encoder level. This level depends on the specific codec,
+	   and might correspond to the profile level. It is set by default to
+	   unknown.
+
 	   Possible values:
 
 	   unknown
@@ -791,14 +795,11 @@ CODEC OPTIONS
        compression_level integer (encoding,audio,video)
        bits_per_raw_sample integer
        channel_layout integer (decoding/encoding,audio)
-	   Possible values:
-
-       request_channel_layout integer (decoding,audio)
-	   Possible values:
+	   See the Channel Layout section in the ffmpeg-utils(1) manual for
+	   the required syntax.
 
        rc_max_vbv_use float (encoding,video)
        rc_min_vbv_use float (encoding,video)
-       ticks_per_frame integer (decoding/encoding,audio,video)
        color_primaries integer (decoding/encoding,video)
 	   Possible values:
 
@@ -943,10 +944,12 @@ CODEC OPTIONS
 
 	   tv
 	   mpeg
+	   limited
 	       MPEG (219*2^(n-8))
 
 	   pc
 	   jpeg
+	   full
 	       JPEG (2^n-1)
 
        chroma_sample_location integer (decoding/encoding,video)
@@ -1168,6 +1171,28 @@ VIDEO DECODERS
 	   Set amount of frame threads to use during decoding. The default
 	   value is 0 (autodetect).
 
+   libxevd
+       eXtra-fast Essential Video Decoder (XEVD) MPEG-5 EVC decoder wrapper.
+
+       This decoder requires the presence of the libxevd headers and library
+       during configuration. You need to explicitly configure the build with
+       --enable-libxevd.
+
+       The xevd project website is at <https://github.com/mpeg5/xevd>.
+
+       Options
+
+       The following options are supported by the libxevd wrapper.  The xevd-
+       equivalent options or values are listed in parentheses for easy
+       migration.
+
+       To get a more accurate and extensive documentation of the libxevd
+       options, invoke the command  "xevd_app --help" or consult the libxevd
+       documentation.
+
+       threads (threads)
+	   Force to use a specific number of threads
+
    QSV Decoders
        The family of Intel QuickSync Video decoders (VC1, MPEG-2, H.264, HEVC,
        JPEG/MJPEG, VP8, VP9, AV1).
@@ -1347,6 +1372,161 @@ SUBTITLES DECODERS
 	   height ruby text.
 
 	   Enabled by default.
+
+   libaribcaption
+       Yet another ARIB STD-B24 caption decoder using external libaribcaption
+       library.
+
+       Implements profiles A and C of the Japanse ARIB STD-B24 standard,
+       Brazilian ABNT NBR 15606-1, and Philippines version of ISDB-T.
+
+       Requires the presence of the libaribcaption headers and library
+       (<https://github.com/xqq/libaribcaption>) during configuration.	You
+       need to explicitly configure the build with "--enable-libaribcaption".
+       If both libaribb24 and libaribcaption are enabled, libaribcaption
+       decoder precedes.
+
+       libaribcaption Decoder Options
+
+       -sub_type subtitle_type
+	   Specifies the format of the decoded subtitles.
+
+	   bitmap
+	       Graphical image.
+
+	   ass ASS formatted text.
+
+	   text
+	       Simple text based output without formatting.
+
+	   The default is ass as same as libaribb24 decoder.  Some present
+	   players (e.g., mpv) expect ASS format for ARIB caption.
+
+       -caption_encoding encoding_scheme
+	   Specifies the encoding scheme of input subtitle text.
+
+	   auto
+	       Automatically detect text encoding (default).
+
+	   jis 8bit-char JIS encoding defined in ARIB STD B24.	This encoding
+	       used in Japan for ISDB captions.
+
+	   utf8
+	       UTF-8 encoding defined in ARIB STD B24.	This encoding is used
+	       in Philippines for ISDB-T captions.
+
+	   latin
+	       Latin character encoding defined in ABNT NBR 15606-1.  This
+	       encoding is used in South America for SBTVD / ISDB-Tb captions.
+
+       -font font_name[,font_name2,...]
+	   Specify comma-separated list of font family names to be used for
+	   bitmap or ass type subtitle rendering.  Only first font name is
+	   used for ass type subtitle.
+
+	   If not specified, use internaly defined default font family.
+
+       -ass_single_rect boolean
+	   ARIB STD-B24 specifies that some captions may be displayed at
+	   different positions at a time (multi-rectangle subtitle).  Since
+	   some players (e.g., old mpv) can't handle multiple ASS rectangles
+	   in a single AVSubtitle, or multiple ASS rectangles of indeterminate
+	   duration with the same start timestamp, this option can change the
+	   behavior so that all the texts are displayed in a single ASS
+	   rectangle.
+
+	   The default is false.
+
+	   If your player cannot handle AVSubtitles with multiple ASS
+	   rectangles properly, set this option to true or define
+	   ASS_SINGLE_RECT=1 to change default behavior at compilation.
+
+       -force_outline_text boolean
+	   Specify whether always render outline text for all characters
+	   regardless of the indication by charactor style.
+
+	   The default is false.
+
+       -outline_width number (0.0 - 3.0)
+	   Specify width for outline text, in dots (relative).
+
+	   The default is 1.5.
+
+       -ignore_background boolean
+	   Specify whether to ignore background color rendering.
+
+	   The default is false.
+
+       -ignore_ruby boolean
+	   Specify whether to ignore rendering for ruby-like (furigana)
+	   characters.
+
+	   The default is false.
+
+       -replace_drcs boolean
+	   Specify whether to render replaced DRCS characters as Unicode
+	   characters.
+
+	   The default is true.
+
+       -replace_msz_ascii boolean
+	   Specify whether to replace MSZ (Middle Size; half width) fullwidth
+	   alphanumerics with halfwidth alphanumerics.
+
+	   The default is true.
+
+       -replace_msz_japanese boolean
+	   Specify whether to replace some MSZ (Middle Size; half width)
+	   fullwidth japanese special characters with halfwidth ones.
+
+	   The default is true.
+
+       -replace_msz_glyph boolean
+	   Specify whether to replace MSZ (Middle Size; half width) characters
+	   with halfwidth glyphs if the fonts supports it.  This option works
+	   under FreeType or DirectWrite renderer with Adobe-Japan1 compliant
+	   fonts.  e.g., IBM Plex Sans JP, Morisawa BIZ UDGothic, Morisawa BIZ
+	   UDMincho, Yu Gothic, Yu Mincho, and Meiryo.
+
+	   The default is true.
+
+       -canvas_size image_size
+	   Specify the resolution of the canvas to render subtitles to;
+	   usually, this should be frame size of input video.  This only
+	   applies when "-subtitle_type" is set to bitmap.
+
+	   The libaribcaption decoder assumes input frame size for bitmap
+	   rendering as below:
+
+	   1.  PROFILE_A : 1440 x 1080 with SAR (PAR) 4:3
+
+	   2.  PROFILE_C : 320 x 180 with SAR (PAR) 1:1
+
+	   If actual frame size of input video does not match above
+	   assumption, the rendered captions may be distorted.	To make the
+	   captions undistorted, add "-canvas_size" option to specify actual
+	   input video size.
+
+	   Note that the "-canvas_size" option is not required for video with
+	   different size but same aspect ratio.  In such cases, the caption
+	   will be stretched or shrunk to actual video size if "-canvas_size"
+	   option is not specified.  If "-canvas_size" option is specified
+	   with different size, the caption will be stretched or shrunk as
+	   specified size with calculated SAR.
+
+       libaribcaption decoder usage examples
+
+       Display MPEG-TS file with ARIB subtitle by "ffplay" tool:
+
+	       ffplay -sub_type bitmap MPEG.TS
+
+       Display MPEG-TS file with input frame size 1920x1080 by "ffplay" tool:
+
+	       ffplay -sub_type bitmap -canvas_size 1920x1080 MPEG.TS
+
+       Embed ARIB subtitle in transcoded video:
+
+	       ffmpeg -sub_type bitmap -i src.m2t -filter_complex "[0:v][0:s]overlay" -vcodec h264 dest.mp4
 
    dvbsub
        Options
@@ -1599,8 +1779,7 @@ AUDIO ENCODERS
    ac3 and ac3_fixed
        AC-3 audio encoders.
 
-       These encoders implement part of ATSC A/52:2010 and ETSI TS 102 366, as
-       well as the undocumented RealAudio 3 (a.k.a. dnet).
+       These encoders implement part of ATSC A/52:2010 and ETSI TS 102 366.
 
        The ac3 encoder uses floating-point math, while the ac3_fixed encoder
        only uses fixed-point integer math. This does not mean that one is
@@ -2052,7 +2231,7 @@ AUDIO ENCODERS
    opus
        Opus encoder.
 
-       This is a native FFmpeg encoder for the Opus format. Currently its in
+       This is a native FFmpeg encoder for the Opus format. Currently, it's in
        development and only implements the CELT part of the codec. Its quality
        is usually worse and at best is equal to the libopus encoder.
 
@@ -2214,6 +2393,11 @@ AUDIO ENCODERS
 
 	   Default value is 0.
 
+       frame_length
+	   Set the audio frame length in samples. Default value is the
+	   internal default of the library. Refer to the library's
+	   documentation for information about supported values.
+
        Examples
 
        o   Use ffmpeg to convert an audio file to VBR AAC in an M4A (MP4)
@@ -2225,6 +2409,59 @@ AUDIO ENCODERS
 	   High-Efficiency AAC profile:
 
 		   ffmpeg -i input.wav -c:a libfdk_aac -profile:a aac_he -b:a 64k output.m4a
+
+   liblc3
+       liblc3 LC3 (Low Complexity Communication Codec) encoder wrapper.
+
+       Requires the presence of the liblc3 headers and library during
+       configuration.  You need to explicitly configure the build with
+       "--enable-liblc3".
+
+       This encoder has support for the Bluetooth SIG LC3 codec for the LE
+       Audio protocol, and the following features of LC3plus:
+
+       o   Frame duration of 2.5 and 5ms.
+
+       o   High-Resolution mode, 48 KHz, and 96 kHz sampling rates.
+
+       For more information see the liblc3 project at
+       <https://github.com/google/liblc3>.
+
+       Options
+
+       The following options are mapped on the shared FFmpeg codec options.
+
+       b bitrate
+	   Set the bit rate in bits/s. This will determine the fixed size of
+	   the encoded frames, for a selected frame duration.
+
+       ar frequency
+	   Set the audio sampling rate (in Hz).
+
+       channels
+	   Set the number of audio channels.
+
+       frame_duration
+	   Set the audio frame duration in milliseconds. Default value is
+	   10ms.  Allowed frame durations are 2.5ms, 5ms, 7.5ms and 10ms.  LC3
+	   (Bluetooth LE Audio), allows 7.5ms and 10ms; and LC3plus 2.5ms, 5ms
+	   and 10ms.
+
+	   The 10ms frame duration is available in LC3 and LC3 plus standard.
+	   In this mode, the produced bitstream can be referenced either as
+	   LC3 or LC3plus.
+
+       high_resolution boolean
+	   Enable the high-resolution mode if set to 1. The high-resolution
+	   mode is available with all LC3plus frame durations and for a
+	   sampling rate of 48 KHz, and 96 KHz.
+
+	   The encoder automatically turns off this mode at lower sampling
+	   rates and activates it at 96 KHz.
+
+	   This mode should be preferred at high bitrates. In this mode, the
+	   audio bandwidth is always up to the Nyquist frequency, compared to
+	   LC3 at 48 KHz, which limits the bandwidth to 20 KHz.
 
    libmp3lame
        LAME (Lame Ain't an MP3 Encoder) MP3 encoder wrapper.
@@ -2272,6 +2509,14 @@ AUDIO ENCODERS
 	   Enable the encoder to use ABR when set to 1. The lame --abr sets
 	   the target bitrate, while this options only tells FFmpeg to use ABR
 	   still relies on b to set bitrate.
+
+       copyright (-c)
+	   Set MPEG audio copyright flag when set to 1. The default value is 0
+	   (disabled).
+
+       original (-o)
+	   Set MPEG audio original flag when set to 1. The default value is 1
+	   (enabled).
 
    libopencore-amrnb
        OpenCORE Adaptive Multi-Rate Narrowband encoder.
@@ -2362,13 +2607,16 @@ AUDIO ENCODERS
 	       Favor faithfulness to the input (the default).
 
 	   lowdelay
-	       Restrict to only the lowest delay modes.
+	       Restrict to only the lowest delay modes by disabling voice-
+	       optimized modes.
 
        cutoff (N.A.)
 	   Set cutoff bandwidth in Hz. The argument must be exactly one of the
 	   following: 4000, 6000, 8000, 12000, or 20000, corresponding to
 	   narrowband, mediumband, wideband, super wideband, and fullband
-	   respectively. The default is 0 (cutoff disabled).
+	   respectively. The default is 0 (cutoff disabled). Note that libopus
+	   forces a wideband cutoff for bitrates < 15 kbps, unless CELT-only
+	   (application set to lowdelay) mode is used.
 
        mapping_family (mapping_family)
 	   Set channel mapping family to be used by the encoder. The default
@@ -3507,6 +3755,11 @@ VIDEO ENCODERS
 	       4   Same as option "3", except there is a dependency between
 		   the two temporal layer 2 frames within the temporal period.
 
+       VP8-specific options
+	   screen-content-mode
+	       Screen content mode, one of: 0 (off), 1 (screen), 2 (screen
+	       with more aggressive rate control).
+
        VP9-specific options
 	   lossless
 	       Enable lossless mode.
@@ -3598,6 +3851,63 @@ VIDEO ENCODERS
 		   Indicates frame duration
 
        For more information about libvpx see: <http://www.webmproject.org/>
+
+   libvvenc
+       VVenC H.266/VVC encoder wrapper.
+
+       This encoder requires the presence of the libvvenc headers and library
+       during configuration. You need to explicitly configure the build with
+       --enable-libvvenc.
+
+       The VVenC project website is at
+       <https://github.com/fraunhoferhhi/vvenc>.
+
+       Supported Pixel Formats
+
+       VVenC supports only 10-bit color spaces as input. But the internal
+       (encoded) bit depth can be set to 8-bit or 10-bit at runtime.
+
+       Options
+
+       b   Sets target video bitrate.
+
+       g   Set the GOP size. Currently support for g=1 (Intra only) or
+	   default.
+
+       preset
+	   Set the VVenC preset.
+
+       levelidc
+	   Set level idc.
+
+       tier
+	   Set vvc tier.
+
+       qp  Set constant quantization parameter.
+
+       subopt boolean
+	   Set subjective (perceptually motivated) optimization. Default is 1
+	   (on).
+
+       bitdepth8 boolean
+	   Set 8bit coding mode instead of using 10bit. Default is 0 (off).
+
+       period
+	   set (intra) refresh period in seconds.
+
+       vvenc-params
+	   Set vvenc options using a list of key=value couples separated by
+	   ":". See vvencapp --fullhelp or vvencFFapp --fullhelp for a list of
+	   options.
+
+	   For example, the options might be provided as:
+
+		   intraperiod=64:decodingrefreshtype=idr:poc0idr=1:internalbitdepth=8
+
+	   For example the encoding options might be provided with
+	   -vvenc-params:
+
+		   ffmpeg -i input -c:v libvvenc -b 1M -vvenc-params intraperiod=64:decodingrefreshtype=idr:poc0idr=1:internalbitdepth=8 output.mp4
 
    libwebp
        libwebp WebP Image encoder wrapper
@@ -3705,20 +4015,28 @@ VIDEO ENCODERS
        options, invoke the command x264 --fullhelp or consult the libx264
        documentation.
 
+       In the list below, note that the x264 option name is shown in
+       parentheses after the libavcodec corresponding name, in case there is a
+       direct mapping.
+
        b (bitrate)
 	   Set bitrate in bits/s. Note that FFmpeg's b option is expressed in
 	   bits/s, while x264's bitrate is in kilobits/s.
 
        bf (bframes)
+	   Number of B-frames between I and P-frames
+
        g (keyint)
+	   Maximum GOP size
+
        qmin (qpmin)
-	   Minimum quantizer scale.
+	   Minimum quantizer scale
 
        qmax (qpmax)
-	   Maximum quantizer scale.
+	   Maximum quantizer scale
 
        qdiff (qpstep)
-	   Maximum difference between quantizer scales.
+	   Maximum difference between quantizer scales
 
        qblur (qblur)
 	   Quantizer curve blur
@@ -3727,8 +4045,22 @@ VIDEO ENCODERS
 	   Quantizer curve compression factor
 
        refs (ref)
-	   Number of reference frames each P-frame can use. The range is from
-	   0-16.
+	   Number of reference frames each P-frame can use. The range is 0-16.
+
+       level (level)
+	   Set the "x264_param_t.i_level_idc" value in case the value is
+	   positive, it is ignored otherwise.
+
+	   This value can be set using the "AVCodecContext" API (e.g. by
+	   setting the "AVCodecContext" value directly), and is specified as
+	   an integer mapped on a corresponding level (e.g. the value 31 maps
+	   to H.264 level IDC "3.1", as defined in the "x264_levels" table).
+	   It is ignored when set to a non positive value.
+
+	   Alternatively it can be set as a private option, overriding the
+	   value set in "AVCodecContext", and in this case must be specified
+	   as the level IDC identifier (e.g. "3.1"), as defined by H.264 Annex
+	   A.
 
        sc_threshold (scenecut)
 	   Sets the threshold for the scene change detection.
@@ -3737,7 +4069,9 @@ VIDEO ENCODERS
 	   Performs Trellis quantization to increase efficiency. Enabled by
 	   default.
 
-       nr  (nr)
+       nr (nr)
+	   Noise reduction
+
        me_range (merange)
 	   Maximum range of the motion search in pixels.
 
@@ -3812,6 +4146,8 @@ VIDEO ENCODERS
 	   behavior of x264's --open-gop option.
 
        rc_init_occupancy (vbv-init)
+	   Initial VBV buffer occupancy
+
        preset (preset)
 	   Set the encoding preset.
 
@@ -3853,7 +4189,7 @@ VIDEO ENCODERS
        psy Use psychovisual optimizations when set to 1. When set to 0, it has
 	   the same effect as x264's --no-psy option.
 
-       psy-rd  (psy-rd)
+       psy-rd (psy-rd)
 	   Set strength of psychovisual optimization, in psy-rd:psy-trellis
 	   format.
 
@@ -3884,8 +4220,8 @@ VIDEO ENCODERS
 	   set to 1.
 
        avcintra-class (class)
-	   Configure the encoder to generate AVC-Intra.  Valid values are
-	   50,100 and 200
+	   Configure the encoder to generate AVC-Intra.  Valid values are 50,
+	   100 and 200
 
        bluray-compat (bluray-compat)
 	   Configure the encoder to be compatible with the bluray standard.
@@ -3935,8 +4271,8 @@ VIDEO ENCODERS
 	   Set fluctuations reduction in QP (before curve compression).
 
        partitions (partitions)
-	   Set partitions to consider as a comma-separated list of. Possible
-	   values in the list:
+	   Set partitions to consider as a comma-separated list of values.
+	   Possible values in the list:
 
 	   p8x8
 	       8x8 P-frame partition.
@@ -3996,17 +4332,29 @@ VIDEO ENCODERS
 	   cbr (cbr)
 	       Constant bit rate (not allowed in MP4 container).
 
-       x264opts (N.A.)
-	   Set any x264 option, see x264 --fullhelp for a list.
+       x264opts opts
+       x264-params opts
+	   Override the x264 configuration using a :-separated list of
+	   key=value options.
 
-	   Argument is a list of key=value couples separated by ":". In filter
-	   and psy-rd options that use ":" as a separator themselves, use ","
-	   instead. They accept it as well since long ago but this is kept
-	   undocumented for some reason.
+	   The argument for both options is a list of key=value couples
+	   separated by ":". With x264opts the value can be omitted, and the
+	   value 1 is assumed in that case.
+
+	   For filter and psy-rd options values that use ":" as a separator
+	   themselves, use "," instead. They accept it as well since long ago
+	   but this is kept undocumented for some reason.
+
+	   For example, the options might be provided as:
+
+		   level=30:bframes=0:weightp=0:cabac=0:ref=1:vbv-maxrate=768:vbv-bufsize=2000:analyse=all:me=umh:no-fast-pskip=1:subq=6:8x8dct=0:trellis=0
 
 	   For example to specify libx264 encoding options with ffmpeg:
 
 		   ffmpeg -i foo.mpg -c:v libx264 -x264opts keyint=123:min-keyint=20 -an out.mkv
+
+	   To get the complete list of the libx264 options, invoke the command
+	   x264 --fullhelp or consult the libx264 documentation.
 
        a53cc boolean
 	   Import closed captions (which must be ATSC compatible format) into
@@ -4017,18 +4365,9 @@ VIDEO ENCODERS
 	   Import user data unregistered SEI if available into output. Default
 	   is 0 (off).
 
-       x264-params (N.A.)
-	   Override the x264 configuration using a :-separated list of
-	   key=value parameters.
-
-	   This option is functionally the same as the x264opts, but is
-	   duplicated for compatibility with the Libav fork.
-
-	   For example to specify libx264 encoding options with ffmpeg:
-
-		   ffmpeg -i INPUT -c:v libx264 -x264-params level=30:bframes=0:weightp=0:\
-		   cabac=0:ref=1:vbv-maxrate=768:vbv-bufsize=2000:analyse=all:me=umh:\
-		   no-fast-pskip=1:subq=6:8x8dct=0:trellis=0 OUTPUT
+       mb_info boolean
+	   Set mb_info data through AVFrameSideData, only useful when used
+	   from the API. Default is 0 (off).
 
        Encoding ffpresets for common usages are provided so they can be used
        with the general presets system (e.g. passing the pre option).
@@ -4153,6 +4492,69 @@ VIDEO ENCODERS
 
 		   ffmpeg -i input -c:v libxavs2 -xavs2-params RdoqLevel=0 output.avs2
 
+   libxeve
+       eXtra-fast Essential Video Encoder (XEVE) MPEG-5 EVC encoder wrapper.
+       The xeve-equivalent options or values are listed in parentheses for
+       easy migration.
+
+       This encoder requires the presence of the libxeve headers and library
+       during configuration. You need to explicitly configure the build with
+       --enable-libxeve.
+
+	   Many libxeve encoder options are mapped to FFmpeg global codec
+	   options, while unique encoder options are provided through private
+	   options.  Additionally the xeve-params private options allows one
+	   to pass a list of key=value tuples as accepted by the libxeve
+	   "parse_xeve_params" function.
+
+       The xeve project website is at <https://github.com/mpeg5/xeve>.
+
+       Options
+
+       The following options are supported by the libxeve wrapper.  The xeve-
+       equivalent options or values are listed in parentheses for easy
+       migration.
+
+	   To reduce the duplication of documentation, only the private
+	   options and some others requiring special attention are documented
+	   here. For the documentation of the undocumented generic options,
+	   see the Codec Options chapter.
+
+	   To get a more accurate and extensive documentation of the libxeve
+	   options, invoke the command	"xeve_app --help" or consult the
+	   libxeve documentation.
+
+       b (bitrate)
+	   Set target video bitrate in bits/s.	Note that FFmpeg's b option is
+	   expressed in bits/s, while xeve's bitrate is in kilobits/s.
+
+       bf (bframes)
+	   Set the maximum number of B frames (1,3,7,15).
+
+       g (keyint)
+	   Set the GOP size (I-picture period).
+
+       preset (preset)
+	   Set the xeve preset.  Set the encoder preset value to determine
+	   encoding speed [fast, medium, slow, placebo]
+
+       tune (tune)
+	   Set the encoder tune parameter [psnr, zerolatency]
+
+       profile (profile)
+	   Set the encoder profile [0: baseline; 1: main]
+
+       crf (crf)
+	   Set the quality for constant quality mode.  Constant rate factor
+	   <10..49> [default: 32]
+
+       qp (qp)
+	   Set constant quantization rate control method parameter.
+	   Quantization parameter qp <0..51> [default: 32]
+
+       threads (threads)
+	   Force to use a specific number of threads
+
    libxvid
        Xvid MPEG-4 Part 2 encoder wrapper.
 
@@ -4190,8 +4592,6 @@ VIDEO ENCODERS
 	   gray
 	       Only encode grayscale.
 
-	   gmc Enable the use of global motion compensation (GMC).
-
 	   qpel
 	       Enable quarter-pixel motion compensation.
 
@@ -4201,26 +4601,26 @@ VIDEO ENCODERS
 	   global_header
 	       Place global headers in extradata instead of every keyframe.
 
-       trellis
-       me_method
-	   Set motion estimation method. Possible values in decreasing order
-	   of speed and increasing order of quality:
+       gmc Enable the use of global motion compensation (GMC).	Default is 0
+	   (disabled).
 
-	   zero
-	       Use no motion estimation (default).
+       me_quality
+	   Set motion estimation quality level. Possible values in decreasing
+	   order of speed and increasing order of quality:
 
-	   phods
-	   x1
-	   log Enable advanced diamond zonal search for 16x16 blocks and half-
-	       pixel refinement for 16x16 blocks. x1 and log are aliases for
-	       phods.
+	   0   Use no motion estimation (default).
 
-	   epzs
+	   1, 2
+	       Enable advanced diamond zonal search for 16x16 blocks and half-
+	       pixel refinement for 16x16 blocks.
+
+	   3, 4
 	       Enable all of the things described above, plus advanced diamond
-	       zonal search for 8x8 blocks, half-pixel refinement for 8x8
-	       blocks, and motion estimation on chroma planes.
+	       zonal search for 8x8 blocks and half-pixel refinement for 8x8
+	       blocks, also enable motion estimation on chroma planes for P
+	       and B-frames.
 
-	   full
+	   5, 6
 	       Enable all of the things described above, plus extended 16x16
 	       and 8x8 blocks search.
 
@@ -4249,6 +4649,9 @@ VIDEO ENCODERS
 	   When combined with lumi_aq, the resulting quality will not be
 	   better than any of the two specified individually. In other words,
 	   the resulting quality will be the worse one of the two effects.
+
+       trellis
+	   Set rate-distortion optimal quantization.
 
        ssim
 	   Set structural similarity (SSIM) displaying method. Possible
@@ -4285,6 +4688,16 @@ VIDEO ENCODERS
        Video encoders can take input in either of nv12 or yuv420p form (some
        encoders support both, some support only either - in practice, nv12 is
        the safer choice, especially among HW encoders).
+
+   Microsoft RLE
+       Microsoft RLE aka MSRLE encoder.  Only 8-bit palette mode supported.
+       Compatible with Windows 3.1 and Windows 95.
+
+       Options
+
+       g integer
+	   Keyframe interval.  A keyframe is inserted at least every "-g"
+	   frames, sometimes sooner.
 
    mpeg2
        MPEG-2 video encoder.
@@ -4412,7 +4825,7 @@ VIDEO ENCODERS
 
    QSV Encoders
        The family of Intel QuickSync Video encoders (MPEG-2, H.264, HEVC,
-       JPEG/MJPEG and VP9)
+       JPEG/MJPEG, VP9, AV1)
 
        Ratecontrol Method
 
@@ -4431,9 +4844,8 @@ VIDEO ENCODERS
 	       modes, global quality range is 1 to 51, with 1 being the best
 	       quality.
 
-       o   Otherwise, a bitrate-based mode is used. For all of those, you
-	   should specify at least the desired average bitrate with the b
-	   option.
+       o   Otherwise when the desired average bitrate is specified with the b
+	   option, a bitrate-based mode is used.
 
 	   -   LA - VBR with lookahead, when the look_ahead option is
 	       specified.
@@ -4449,6 +4861,8 @@ VIDEO ENCODERS
 	   -   AVBR - average VBR mode, when maxrate is not specified, both
 	       avbr_accuracy and avbr_convergence are set to non-zero. This
 	       mode is available for H264 and HEVC on Windows.
+
+       o   Otherwise the default ratecontrol method CQP is used.
 
        Note that depending on your system, a different mode than the one you
        specified may be selected by the encoder. Set the verbosity level to
@@ -4545,8 +4959,8 @@ VIDEO ENCODERS
 	   max/min qp configuration.
 
        low_delay_brc
-	   Supported in h264_qsv and hevc_qsv.	Change this value to reset qsv
-	   codec's low_delay_brc configuration.
+	   Supported in h264_qsv, hevc_qsv and av1_qsv.  Change this value to
+	   reset qsv codec's low_delay_brc configuration.
 
        framerate
 	   Change this value to reset qsv codec's framerate configuration.
@@ -4561,6 +4975,23 @@ VIDEO ENCODERS
        pic_timing_sei
 	   Supported in h264_qsv and hevc_qsv.	Change this value to reset qsv
 	   codec's pic_timing_sei configuration.
+
+       qsv_params
+	   Set QSV encoder parameters as a colon-separated list of key-value
+	   pairs.
+
+	   The qsv_params should be formatted as
+	   "key1=value1:key2=value2:...".
+
+	   These parameters are passed directly to the underlying Intel Quick
+	   Sync Video (QSV) encoder using the MFXSetParameter function.
+
+	   Example:
+
+		   ffmpeg -i input.mp4 -c:v h264_qsv -qsv_params "CodingOption1=1:CodingOption2=2" output.mp4
+
+	   This option allows fine-grained control over various encoder-
+	   specific settings provided by the QSV encoder.
 
        H264 options
 
@@ -5149,7 +5580,24 @@ VIDEO ENCODERS
 	   AVBR
 	       Average variable bitrate.
 
+       blbrc
+	   Enable block level rate control, which assigns different bitrate
+	   block by block.  Invalid for CQP mode.
+
        Each encoder also has its own specific options:
+
+       av1_vaapi
+	   profile sets the value of seq_profile.  tier sets the value of
+	   seq_tier.  level sets the value of seq_level_idx.
+
+	   tiles
+	       Set the number of tiles to encode the input video with, as
+	       columns x rows.	(default is auto, which means use minimal tile
+	       column/row number).
+
+	   tile_groups
+	       Set tile groups number. All the tiles will be distributed as
+	       evenly as possible to each tile group. (default is 1).
 
        h264_vaapi
 	   profile sets the value of profile_idc and the
@@ -5354,9 +5802,9 @@ AUTHORS
        The FFmpeg developers.
 
        For details about the authorship, see the Git history of the project
-       (git://source.ffmpeg.org/ffmpeg), e.g. by typing the command git log in
+       (https://git.ffmpeg.org/ffmpeg), e.g. by typing the command git log in
        the FFmpeg source directory, or browsing the online repository at
-       <http://source.ffmpeg.org>.
+       <https://git.ffmpeg.org/ffmpeg>.
 
        Maintainers for the specific components are listed in the file
        MAINTAINERS in the source code tree.
